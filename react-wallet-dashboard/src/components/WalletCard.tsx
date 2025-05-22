@@ -7,31 +7,44 @@ const WalletCard: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 w-full max-w-md mx-auto mt-10">
-      <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Wallet Dashboard</h2>
+    <div className="max-w-md mx-auto mt-10 p-6 rounded-2xl shadow-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-300">
+      <h1 className="text-2xl font-bold mb-6 text-center"> Wallet Dashboard</h1>
 
-      <button
-        onClick={toggleTheme}
-        className="mb-4 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition"
-        aria-label="Toggle dark/light mode"
-      >
-        {theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-      </button>
-
-      {address ? (
-        <div className="text-gray-800 dark:text-gray-200">
-          <p><strong>Address:</strong> {ensName ?? address}</p>
-          <p><strong>Network:</strong> {network}</p>
-          <p><strong>ETH Balance:</strong> {ethBalance ?? "Loading..."}</p>
-           <p><strong>DAI Balance:</strong> {daiBalance ?? "N/A"}</p>
-        </div>
-      ) : (
+      <div className="flex justify-between items-center mb-4">
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-          onClick={connectWallet}
+          onClick={toggleTheme}
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:scale-105 transition"
         >
-          Connect Wallet
+          {theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
         </button>
+
+        <button
+          onClick={connectWallet}
+          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition disabled:opacity-50"
+        >
+          {address ? "Connected" : "Connect Wallet"}
+        </button>
+      </div>
+
+      {address && (
+        <div className="space-y-3 mt-6 text-sm">
+          <div>
+            <span className="font-semibold">Address:</span><br />
+            <span className="break-words">{address}</span>
+          </div>
+          <div>
+            <span className="font-semibold">Network:</span> {network}
+          </div>
+          <div>
+            <span className="font-semibold">ETH Balance:</span> {ethBalance} ETH
+          </div>
+        </div>
+      )}
+
+      {!address && (
+        <p className="text-sm text-gray-600 dark:text-gray-300 mt-4 text-center">
+          Please connect your MetaMask wallet to view info.
+        </p>
       )}
     </div>
   );
