@@ -3,7 +3,7 @@ import React from "react";
 import { useWallet } from "../hooks/useWallet";
 
 const WalletCard: React.FC = () => {
-  const { address, network, ethBalance, daiBalance, connectWallet } = useWallet();
+  const { address, network, ethBalance, daiBalance, ensName, connectWallet } = useWallet();
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 w-full max-w-md mx-auto mt-10">
@@ -11,7 +11,7 @@ const WalletCard: React.FC = () => {
 
       {address ? (
         <div className="text-gray-800 dark:text-gray-200">
-          <p><strong>Address:</strong> {address}</p>
+          <p><strong>Address:</strong> {ensName ?? address}</p>
           <p><strong>Network:</strong> {network}</p>
           <p><strong>ETH Balance:</strong> {ethBalance ?? "Loading..."}</p>
            <p><strong>DAI Balance:</strong> {daiBalance ?? "N/A"}</p>
