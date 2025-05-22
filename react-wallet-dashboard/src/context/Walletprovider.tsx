@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useState, useEffect, useCallback, useRef } from "react";
 import { ethers } from "ethers";
 
 interface WalletContextType {
@@ -20,10 +20,8 @@ export const WalletContext = createContext<WalletContextType>({
 });
 
 const DAI_ADDRESS_MAP: Record<string, string> = {
-  // Mainnet
-  homestead: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-  // Goerli testnet (DAI deployed)
-  goerli: "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
+  homestead: "0x6B175474E89094C44Da98b954EedeAC495271d0F", // Ethereum Mainnet
+  goerli: "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",   // Goerli testnet
 };
 
 const MINIMAL_ERC20_ABI = [
@@ -38,32 +36,27 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [daiBalance, setDaiBalance] = useState<string | null>(null);
   const [ensName, setEnsName] = useState<string | null>(null);
 
-  let blockListener: ((blockNumber: number) => void) | null = null;
+  const blockListenerRef = useRef<((blockNumber: number) => void) | null>(null);
 
   const fetchBalances = useCallback(
     async (provider: ethers.BrowserProvider, addr: string, net: string) => {
-      // Fetch ETH balance
       const ethBalanceBN = await provider.getBalance(addr);
       setEthBalance(ethers.formatEther(ethBalanceBN));
 
-      // Fetch DAI balance 
       const daiAddress = DAI_ADDRESS_MAP[net];
-      if (!daiAddress) {
-        setDaiBalance(null);
-      } else {
+      if (!daiAddress) return setDaiBalance(null);
+
       try {
         const daiContract = new ethers.Contract(daiAddress, MINIMAL_ERC20_ABI, provider);
         const [rawBalance, decimals] = await Promise.all([
           daiContract.balanceOf(addr),
           daiContract.decimals(),
         ]);
-        const formatted = ethers.formatUnits(rawBalance, decimals);
-        setDaiBalance(formatted);
+        setDaiBalance(ethers.formatUnits(rawBalance, decimals));
       } catch {
         setDaiBalance(null);
-         }
-    }
-  },
+      }
+    },
     []
   );
 
@@ -88,45 +81,47 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const accounts = await provider.send("eth_requestAccounts", []);
-      const network = await provider.getNetwork();
-      
-      setAddress(accounts[0]);
-      setNetwork(network.name);
+      const net = await provider.getNetwork();
 
-      await fetchBalances(provider, accounts[0], network.name);
-      await resolveENS(provider, accounts[0]);
+      const userAddress = accounts[0];
+      setAddress(userAddress);
+      setNetwork(net.name);
 
-      // Remove existing listener if any
-      if (blockListener) {
-        provider.provider.removeListener("block", blockListener);
+      await fetchBalances(provider, userAddress, net.name);
+      await resolveENS(provider, userAddress);
+
+      // Clear previous listener
+      if (blockListenerRef.current) {
+        provider.provider.removeListener("block", blockListenerRef.current);
       }
 
-      blockListener = async (blockNumber: number) => {
-        await fetchBalances(provider, accounts[0], network.name);
-        await resolveENS(provider, accounts[0]);
+      // Set up new listener
+      const newBlockListener = async (blockNumber: number) => {
+        await fetchBalances(provider, userAddress, net.name);
+        await resolveENS(provider, userAddress);
       };
 
-      provider.provider.removeListener("block", blockListener);
+      provider.provider.on("block", newBlockListener);
+      blockListenerRef.current = newBlockListener;
+
     } catch (error) {
       console.error("Wallet connection error:", error);
       alert("Failed to connect wallet");
     }
   }, [fetchBalances, resolveENS]);
 
-useEffect(() => {
+  useEffect(() => {
     return () => {
-      if (window.ethereum) {
+      if (window.ethereum && blockListenerRef.current) {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        if (blockListener) {
-          provider.provider.removeListener("block", blockListener);
-        }
+        provider.provider.removeListener("block", blockListenerRef.current);
       }
     };
   }, []);
 
   return (
-    <WalletContext.Provider 
-    value={{ address, network, ethBalance, daiBalance, ensName, connectWallet }}
+    <WalletContext.Provider
+      value={{ address, network, ethBalance, daiBalance, ensName, connectWallet }}
     >
       {children}
     </WalletContext.Provider>
