@@ -6,6 +6,7 @@ interface WalletContextType {
   network: string | null;
   ethBalance: string | null;
   daiBalance: string | null;
+  ensName: string | null;
   connectWallet: () => Promise<void>;
 }
 
@@ -14,6 +15,7 @@ export const WalletContext = createContext<WalletContextType>({
   network: null,
   ethBalance: null,
   daiBalance: null,
+  ensName: null,
   connectWallet: async () => {},
 });
 
@@ -34,6 +36,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [network, setNetwork] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [daiBalance, setDaiBalance] = useState<string | null>(null);
+  const [ensName, setEnsName] = useState<string | null>(null);
 
   let blockListener: ((blockNumber: number) => void) | null = null;
 
@@ -43,13 +46,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const ethBalanceBN = await provider.getBalance(addr);
       setEthBalance(ethers.formatEther(ethBalanceBN));
 
-      // Fetch DAI balance if contract exists on network
+      // Fetch DAI balance 
       const daiAddress = DAI_ADDRESS_MAP[net];
       if (!daiAddress) {
         setDaiBalance(null);
-        return;
-      }
-
+      } else {
       try {
         const daiContract = new ethers.Contract(daiAddress, MINIMAL_ERC20_ABI, provider);
         const [rawBalance, decimals] = await Promise.all([
@@ -61,6 +62,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch {
         setDaiBalance(null);
          }
+    }
+  },
+    []
+  );
+
+  const resolveENS = useCallback(
+    async (provider: ethers.BrowserProvider, addr: string) => {
+      try {
+        const name = await provider.lookupAddress(addr);
+        setEnsName(name);
+      } catch {
+        setEnsName(null);
+      }
     },
     []
   );
@@ -80,6 +94,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setNetwork(network.name);
 
       await fetchBalances(provider, accounts[0], network.name);
+      await resolveENS(provider, accounts[0]);
 
       // Remove existing listener if any
       if (blockListener) {
@@ -88,6 +103,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       blockListener = async (blockNumber: number) => {
         await fetchBalances(provider, accounts[0], network.name);
+        await resolveENS(provider, accounts[0]);
       };
 
       provider.provider.removeListener("block", blockListener);
@@ -95,7 +111,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Wallet connection error:", error);
       alert("Failed to connect wallet");
     }
-  }, [fetchBalances]);
+  }, [fetchBalances, resolveENS]);
 
 useEffect(() => {
     return () => {
@@ -109,7 +125,9 @@ useEffect(() => {
   }, []);
 
   return (
-    <WalletContext.Provider value={{ address, network, ethBalance, daiBalance, connectWallet }}>
+    <WalletContext.Provider 
+    value={{ address, network, ethBalance, daiBalance, ensName, connectWallet }}
+    >
       {children}
     </WalletContext.Provider>
   );
