@@ -2,49 +2,54 @@ import React from "react";
 import { useWallet } from "../hooks/useWallet";
 import { useTheme } from "../context/ThemeContext";
 
-const WalletCard: React.FC = () => {
+const WalletCard = () => {
   const { address, network, ethBalance, daiBalance, ensName, connectWallet } = useWallet();
   const { theme, toggleTheme } = useTheme();
+
+  const formatAddress = (addr: string) =>
+    addr.slice(0, 6) + "..." + addr.slice(-4);
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 rounded-2xl shadow-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-300">
       <h1 className="text-2xl font-bold mb-6 text-center"> Wallet Dashboard</h1>
 
-      <div className="flex justify-between items-center mb-4">
-        <button
-          onClick={toggleTheme}
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:scale-105 transition"
-        >
-          {theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        </button>
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="block mx-auto bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-sm px-3 py-1 rounded"
+      >
+        Switch to {theme === "dark" ? "light" : "dark"} mode
+      </button>
 
+      {/* If not connected */}
+      {!address ? (
         <button
           onClick={connectWallet}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition disabled:opacity-50"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition"
         >
-          {address ? "Connected" : "Connect Wallet"}
+          Connect Wallet
         </button>
-      </div>
+      ) : (
+        <>
+         {ensName && (
+            <div className="text-center text-lg font-medium text-indigo-500">
+              {ensName}
+            </div>
+          )}
+          <div className="text-center text-sm text-gray-500">
+            {formatAddress(address)}
+          </div>
+          <div className="text-center text-sm">Network: {network}</div>
 
-      {address && (
-        <div className="space-y-3 mt-6 text-sm">
-          <div>
-            <span className="font-semibold">Address:</span><br />
-            <span className="break-words">{address}</span>
+          <div className="flex justify-between text-sm border-t pt-4">
+            <span>ETH Balance:</span>
+            <span>{ethBalance ?? "--"} ETH</span>
           </div>
-          <div>
-            <span className="font-semibold">Network:</span> {network}
+          <div className="flex justify-between text-sm">
+            <span>DAI Balance:</span>
+            <span>{daiBalance ?? "--"} DAI</span>
           </div>
-          <div>
-            <span className="font-semibold">ETH Balance:</span> {ethBalance} ETH
-          </div>
-        </div>
-      )}
-
-      {!address && (
-        <p className="text-sm text-gray-600 dark:text-gray-300 mt-4 text-center">
-          Please connect your MetaMask wallet to view info.
-        </p>
+        </>
       )}
     </div>
   );

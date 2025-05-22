@@ -1,4 +1,10 @@
-import React, { createContext, useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { ethers } from "ethers";
 
 interface WalletContextType {
@@ -20,8 +26,8 @@ export const WalletContext = createContext<WalletContextType>({
 });
 
 const DAI_ADDRESS_MAP: Record<string, string> = {
-  homestead: "0x6B175474E89094C44Da98b954EedeAC495271d0F", // Ethereum Mainnet
-  goerli: "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",   // Goerli testnet
+  homestead: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+  goerli: "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
 };
 
 const MINIMAL_ERC20_ABI = [
@@ -29,13 +35,16 @@ const MINIMAL_ERC20_ABI = [
   "function decimals() view returns (uint8)",
 ];
 
-export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [address, setAddress] = useState<string | null>(null);
   const [network, setNetwork] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [daiBalance, setDaiBalance] = useState<string | null>(null);
   const [ensName, setEnsName] = useState<string | null>(null);
 
+  const providerRef = useRef<ethers.BrowserProvider | null>(null);
   const blockListenerRef = useRef<((blockNumber: number) => void) | null>(null);
 
   const fetchBalances = useCallback(
@@ -47,7 +56,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!daiAddress) return setDaiBalance(null);
 
       try {
-        const daiContract = new ethers.Contract(daiAddress, MINIMAL_ERC20_ABI, provider);
+        const daiContract = new ethers.Contract(
+          daiAddress,
+          MINIMAL_ERC20_ABI,
+          provider
+        );
         const [rawBalance, decimals] = await Promise.all([
           daiContract.balanceOf(addr),
           daiContract.decimals(),
@@ -80,30 +93,29 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
+      providerRef.current = provider;
+
       const accounts = await provider.send("eth_requestAccounts", []);
       const net = await provider.getNetwork();
-
       const userAddress = accounts[0];
+
       setAddress(userAddress);
       setNetwork(net.name);
 
       await fetchBalances(provider, userAddress, net.name);
       await resolveENS(provider, userAddress);
 
-      // Clear previous listener
       if (blockListenerRef.current) {
         provider.provider.removeListener("block", blockListenerRef.current);
       }
 
-      // Set up new listener
-      const newBlockListener = async (blockNumber: number) => {
+      const listener = async (blockNumber: number) => {
         await fetchBalances(provider, userAddress, net.name);
         await resolveENS(provider, userAddress);
       };
 
-      provider.provider.on("block", newBlockListener);
-      blockListenerRef.current = newBlockListener;
-
+      provider.provider.on("block", listener);
+      blockListenerRef.current = listener;
     } catch (error) {
       console.error("Wallet connection error:", error);
       alert("Failed to connect wallet");
@@ -112,16 +124,24 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     return () => {
-      if (window.ethereum && blockListenerRef.current) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        provider.provider.removeListener("block", blockListenerRef.current);
+      const provider = providerRef.current;
+      const listener = blockListenerRef.current;
+      if (provider && listener) {
+        provider.provider.removeListener("block", listener);
       }
     };
   }, []);
 
   return (
     <WalletContext.Provider
-      value={{ address, network, ethBalance, daiBalance, ensName, connectWallet }}
+      value={{
+        address,
+        network,
+        ethBalance,
+        daiBalance,
+        ensName,
+        connectWallet,
+      }}
     >
       {children}
     </WalletContext.Provider>
